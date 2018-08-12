@@ -26,9 +26,7 @@ function [J grad] = nnCostFunction(nn_params, ...
   m = size(X, 1);
 
   % You need to return the following variables correctly
-  J = zeros(size(m), 1);
-  Theta1_grad = zeros(size(Theta1));
-  Theta2_grad = zeros(size(Theta2));
+  J = 0;
 
   % ====================== YOUR CODE HERE ======================
   % Instructions: You should complete the code by working through the
@@ -63,12 +61,13 @@ function [J grad] = nnCostFunction(nn_params, ...
   %
 
   bias_vector = ones(m, 1);
-  a2 = sigmoid([bias_vector X] * Theta1'); % 5000x401 * 401x25 => 5000x25
-  a3 = sigmoid([bias_vector a2] * Theta2'); % 5000x26 * 26x10 => 5000x10
+  Z2 = [bias_vector X] * Theta1';
+  A2 = sigmoid(Z2); % 5000x401 * 401x25 => 5000x25
+  A3 = sigmoid([bias_vector A2] * Theta2'); % 5000x26 * 26x10 => 5000x10
 
   for class = 1:num_labels
     class_y = y == class;
-    hypothesis = a3(:, class);
+    hypothesis = A3(:, class);
 
     J += -class_y .* log(hypothesis) - (1 - class_y) .* log(1 - hypothesis);
   end
@@ -81,32 +80,44 @@ function [J grad] = nnCostFunction(nn_params, ...
 
   % Gradients
 
-  for t = 1:m
-    % Theta1 = 25x401
-    % Theta2 = 10x26
+  % Theta1_grad = zeros(size(Theta1));
+  % Theta2_grad = zeros(size(Theta2));
+  %
+  % for t = 1:m
+  %   % Theta1 = 25x401
+  %   % Theta2 = 10x26
 
-    x_t = X(t, :); % 1x400
-    z2 = Theta1 * [1 x_t]'; % 25x401 * 401x1 => 25x1
-    a2_t = sigmoid(z2); % 25x1
+  %   x_t = X(t, :); % 1x400
+  %   z2 = Theta1 * [1 x_t]'; % 25x401 * 401x1 => 25x1
+  %   a2_t = sigmoid(z2); % 25x1
 
-    % Probability of being in class
-    a3_t = sigmoid(Theta2 * [1; a2_t]); % 10x26 * 26x1 => 10x1;
+  %   % Probability of being in class
+  %   a3_t = sigmoid(Theta2 * [1; a2_t]); % 10x26 * 26x1 => 10x1;
 
-    y_t = [1:num_labels](:) == y(t);
-    delta_3 = a3_t - y_t; % 10x1
-    % 26x10 * 10x1 => 26x1
-    delta_2 = Theta2' * delta_3 .* sigmoidGradient([1; z2]);
+  %   y_t = [1:num_labels](:) == y(t);
+  %   delta_3 = a3_t - y_t; % 10x1
+  %   % 26x10 * 10x1 => 26x1
+  %   delta_2 = Theta2' * delta_3 .* sigmoidGradient([1; z2]);
 
-    % 25x1 * 1x401
-    Theta1_grad += (1/m) * delta_2(2:end) * [1 x_t];
-    % 10x1 * 1x26
-    Theta2_grad += (1/m) * delta_3 * [1; a2_t]';
-  end
+  %   % 25x1 * 1x401
+  %   Theta1_grad += (1/m) * delta_2(2:end) * [1 x_t];
+  %   % 10x1 * 1x26
+  %   Theta2_grad += (1/m) * delta_3 * [1; a2_t]';
+  % end
+
+  y2class_vector = @(y_t) [1:num_labels] == y_t;
+  Class_vector_y = cell2mat(arrayfun(y2class_vector, y, "UniformOutput", false));
+
+  Delta_3 = A3 - Class_vector_y; % 5000x10
+  Delta_2 = Delta_3 * Theta2 .* sigmoidGradient([bias_vector Z2]); % 5000x26
+
+  Theta1_grad = (1/m) * Delta_2(:, 2:end)' * [bias_vector X]; % 25x5000 * 5000x401 => 25x401
+  Theta2_grad = (1/m) * Delta_3' * [bias_vector A2]; % 10x5000 * 5000x26 => 10x26
 
   reg_Theta1_grad = Theta1_grad(:, 2:end) + (lambda / m) * Theta1(:, 2:end);
-  Theta1_grad = [Theta1_grad(:, 1) reg_Theta1_grad];
-
   reg_Theta2_grad = Theta2_grad(:, 2:end) + (lambda / m) * Theta2(:, 2:end);
+
+  Theta1_grad = [Theta1_grad(:, 1) reg_Theta1_grad];
   Theta2_grad = [Theta2_grad(:, 1) reg_Theta2_grad];
 
   % Unroll gradients
