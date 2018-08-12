@@ -65,18 +65,25 @@ function [J grad] = nnCostFunction(nn_params, ...
   A2 = sigmoid(Z2); % 5000x401 * 401x25 => 5000x25
   A3 = sigmoid([bias_vector A2] * Theta2'); % 5000x26 * 26x10 => 5000x10
 
-  for class = 1:num_labels
-    class_y = y == class;
-    hypothesis = A3(:, class);
+  y2class_vector = @(y_t) [1:num_labels] == y_t;
+  Class_y = cell2mat(arrayfun(y2class_vector, y, "UniformOutput", false));
 
-    J += -class_y .* log(hypothesis) - (1 - class_y) .* log(1 - hypothesis);
-  end
+  % for class = 1:num_labels
+  %   class_y = y == class;
+  %   hypothesis = A3(:, class);
+
+  %   J += -class_y .* log(hypothesis) - (1 - class_y) .* log(1 - hypothesis);
+  % end
+
+  % Class_y (5000x10) .* A3(5000x10)
+  J = -Class_y .* log(A3) - (1 - Class_y) .* log(1 - A3);
+  J = mean(sum(J, 2));
 
   Reg_Theta1 = sum(Theta1(:, 2:end)(:) .** 2);
   Reg_Theta2 = sum(Theta2(:, 2:end)(:) .** 2);
   regularization_factor = (lambda / (2 * m)) * sum([Reg_Theta1 Reg_Theta2]);
 
-  J = mean(J) + regularization_factor;
+  J += regularization_factor;
 
   % Gradients
 
@@ -105,10 +112,7 @@ function [J grad] = nnCostFunction(nn_params, ...
   %   Theta2_grad += (1/m) * delta_3 * [1; a2_t]';
   % end
 
-  y2class_vector = @(y_t) [1:num_labels] == y_t;
-  Class_vector_y = cell2mat(arrayfun(y2class_vector, y, "UniformOutput", false));
-
-  Delta_3 = A3 - Class_vector_y; % 5000x10
+  Delta_3 = A3 - Class_y; % 5000x10
   Delta_2 = Delta_3 * Theta2 .* sigmoidGradient([bias_vector Z2]); % 5000x26
 
   Theta1_grad = (1/m) * Delta_2(:, 2:end)' * [bias_vector X]; % 25x5000 * 5000x401 => 25x401
